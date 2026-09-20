@@ -61,3 +61,7 @@ Bodies and responses travel as JSON/text; binary data (Blob, ArrayBuffer) is not
 ## Scripts
 
 `pnpm dev` (HMR) / `pnpm build` -> load `dist/` in `chrome://extensions` / `pnpm typecheck` / `pnpm lint`
+
+## Autogenerate
+
+Build a template generator with `/scripts/generate-installer.mjs`
