@@ -3,3 +3,4 @@ dist
 graphify-out/
 CLAUDE.md
 .claude/
+create-template.mjs
