@@ -1,18 +1,9 @@
-import { listen } from './core/listen';
-import { logger } from './core/middleware';
-import { Receptor } from './core/receptor';
-import { createPageController } from './controllers/page.controller';
+import { expose } from './core/expose';
+import * as page from './api/page';
 
-function startApp() {
+const api = { page };
 
-    const app = new Receptor();
-    
-    app.use(logger)
-    
-    app.route('/page', createPageController());
+/** What the popup sees as `world.tab`. */
+export type ContentApi = typeof api;
 
-    listen(app);
-
-}
-
-startApp();
+expose(api);

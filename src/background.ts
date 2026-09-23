@@ -1,18 +1,10 @@
-import { createStorageController } from './controllers/storage.controller';
-import { listen } from './core/listen';
-import { logger } from './core/middleware';
-import { Receptor } from './core/receptor';
+import { expose } from './core/expose';
+import * as storage from './api/storage';
+import * as tabs from './api/tabs';
 
-function startBackgroundApp() {
-    
-    const app = new Receptor();
+const api = { storage, tabs };
 
-    app.use(logger)
-    
-    app.route('/storage', createStorageController());
+/** What the popup sees as `world.background`. */
+export type BackgroundApi = typeof api;
 
-    listen(app);
-
-}
-
-startBackgroundApp();
+expose(api);

@@ -1,3 +1,5 @@
+/** The page's DOM. Exposed by the content script as `world.tab.page`. */
+
 export interface PageInfo {
     title: string;
     url: string;
@@ -5,7 +7,7 @@ export interface PageInfo {
     selection: string;
 }
 
-export function getPageInfo(): PageInfo {
+export function getInfo(): PageInfo {
     return {
         title: document.title,
         url: location.href,
@@ -15,13 +17,21 @@ export function getPageInfo(): PageInfo {
 }
 
 export function getTexts(selector: string, limit = 50): string[] {
-    return Array.from(document.querySelectorAll<HTMLElement>(selector))
+    return query(selector)
         .slice(0, limit)
         .map((el) => el.innerText.trim());
 }
 
-export function highlight(selector: string, color: string): number {
-    const elements = document.querySelectorAll<HTMLElement>(selector);
+export function highlight(selector: string, color = 'yellow'): number {
+    const elements = query(selector);
     elements.forEach((el) => (el.style.backgroundColor = color));
     return elements.length;
+}
+
+function query(selector: string): HTMLElement[] {
+    try {
+        return Array.from(document.querySelectorAll<HTMLElement>(selector));
+    } catch {
+        throw new Error(`Invalid selector: ${selector}`);
+    }
 }

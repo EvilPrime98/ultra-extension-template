@@ -1,44 +1,32 @@
 /**
- * Wire format between the popup (xfetch) and the backend (receptor).
+ * Wire format between the popup (`connect`) and the real world (`expose`).
  *
- * chrome messaging only carries JSON, so a request/response is flattened to
- * plain data here and rebuilt into a real `Response` on the client side.
+ * A call is "run the function at this path with these arguments"; a reply is
+ * its return value or the message of what it threw. chrome messaging only
+ * carries JSON, so arguments and return values must be JSON-serializable.
  */
 
 /** Discriminator so unrelated `runtime.onMessage` traffic is never mistaken for ours. */
-export const XFETCH_TAG = 'xfetch/1' as const;
+export const IPC_TAG = 'ipc/1' as const;
 
-/** Where a request is delivered: the page's content script, or the service worker. */
+/** Where a call runs: the page's content script (DOM), or the service worker (chrome.*). */
 export type Target = 'tab' | 'background';
 
-export interface WireRequest {
-    method: string;
-    /** Path + query string, e.g. `/tabs/3?pinned=1`. Never a full origin. */
-    url: string;
-    headers: [string, string][];
-    body: string | null;
+export interface Call {
+    tag: typeof IPC_TAG;
+    /** Route into the exposed API, e.g. `['page', 'getInfo']`. */
+    path: string[];
+    args: unknown[];
 }
 
-export interface WireResponse {
-    status: number;
-    statusText: string;
-    headers: [string, string][];
-    body: string | null;
-}
+export type Reply = { ok: true; value?: unknown } | { ok: false; error: string };
 
-export interface Envelope {
-    tag: typeof XFETCH_TAG;
-    request: WireRequest;
-}
-
-export function isEnvelope(message: unknown): message is Envelope {
+export function isCall(message: unknown): message is Call {
     return (
         typeof message === 'object' &&
         message !== null &&
-        (message as Envelope).tag === XFETCH_TAG &&
-        typeof (message as Envelope).request === 'object'
+        (message as Call).tag === IPC_TAG &&
+        Array.isArray((message as Call).path) &&
+        Array.isArray((message as Call).args)
     );
 }
-
-/** Statuses that must not carry a body (the `Response` constructor throws otherwise). */
-export const NULL_BODY_STATUS = [101, 204, 205, 304];

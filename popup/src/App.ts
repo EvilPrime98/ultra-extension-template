@@ -1,5 +1,5 @@
 import { UltraComponent, ultraState } from "ultra-light-js";
-import { getPageInfo } from "./services/page.service";
+import { world } from "./world";
 
 export function App(){
 
@@ -12,7 +12,7 @@ export function App(){
     const readPage = async () => {
         setOutput('Reading...');
         try {
-            const page = await getPageInfo();
+            const page = await world.tab.page.getInfo();
             setOutput(`${page.title}\n${page.url}`);
         } catch (error) {
             setOutput(error instanceof Error ? error.message : String(error));

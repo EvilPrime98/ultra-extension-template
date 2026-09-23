@@ -14,7 +14,6 @@
   "license": "ISC",
   "packageManager": "pnpm@10.18.1",
   "dependencies": {
-    "path-to-regexp": "^8.4.2",
     "ultra-light-js": "^1.6.1"
   },
   "devDependencies": {

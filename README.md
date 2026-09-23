@@ -1,20 +1,18 @@
 # ultra-extension-template
 
-Chrome extension (MV3) framework built on MVC. A tiny client in the popup talks to a Hono-style backend through `xfetch`, a custom `fetch`.
+Chrome extension (MV3) template where the popup uses the real browser like local code. No routes, no requests: the backend *exposes* plain functions, the popup *calls* them, and chrome messaging carries the call in between.
 
 ```
 popup/                      VIEW (ultra-light-js)
   src/App.ts                  components
-  src/services/*.service.ts   typed wrappers around xfetch, one per controller
-  core/xfetch.ts             custom fetch -> Promise<Response>
+  src/world.ts                the real browser as the popup sees it: world.tab, world.background
+  core/ipc.ts                 connect<T>(target) -> typed proxy that sends calls
 
-src/                        BACKEND (talks to the real browser)
-  core/receptor.ts            Hono-style router (get/post/put/patch/delete/use/route/onError)
-  core/listen.ts              plugs a receptor into chrome.runtime.onMessage
-  controllers/                routes, mounted with app.route('/prefix', controller)
-  models/                     the code that touches the DOM or chrome.* APIs
-  content.ts                  backend inside the web page  (DOM)          -> xfetch('/page')
-  background.ts               backend in the service worker (chrome.*)    -> xfetch('/tabs', { target: 'background' })
+src/                        THE REAL WORLD
+  api/                        plain functions that touch the DOM or chrome.*
+  content.ts                  exposes { page }             (runs in the web page)
+  background.ts               exposes { storage, tabs }    (runs in the service worker)
+  core/expose.ts              plugs an object of functions into chrome.runtime.onMessage
 
 shared/protocol.ts          wire format both sides import
 ```
@@ -22,41 +20,26 @@ shared/protocol.ts          wire format both sides import
 ## Flow
 
 ```
-App.ts -> page.service.ts -> xfetch('/page') ══ chrome messaging ══> listen() -> Receptor
-                                                                         -> pageController -> page.model (DOM)
+await world.tab.page.getInfo()
+  -> connect() proxy ══ chrome messaging ══> expose() -> api/page.getInfo() (document.title, ...)
+  <- return value (or thrown Error -> IpcError)
 ```
 
 ## Add a feature
 
-1. **Model** `src/models/foo.model.ts`: functions that touch `document` or `chrome.*`.
-2. **Controller** `src/controllers/foo.controller.ts`: `export const fooController = new Receptor().get('/:id', c => c.json(...))`.
-3. **Mount it** in `content.ts` or `background.ts`: `.route('/foo', fooController)`.
-4. **Service** `popup/src/services/foo.service.ts`: `xfetchJson<Foo>('/foo/1')`.
-5. Call the service from a component.
+1. **API** `src/api/foo.ts`: export functions that touch `document` or `chrome.*`.
+2. **Expose it** in `content.ts` (DOM) or `background.ts` (chrome.*): `import * as foo from './api/foo'; const api = { ..., foo };`
+3. **Call it** from a component: `await world.tab.foo.bar(1, 'x')` / `await world.background.foo.bar()`.
 
-## Routes
+Types flow from the API to the popup on their own (`world.ts` imports `ContentApi` / `BackgroundApi` as types). Nothing to wire by hand.
 
-Paths use [path-to-regexp](https://github.com/pillarjs/path-to-regexp) v8 syntax, and `c.req.param()` is typed from the route string:
+## Rules
 
-```ts
-.get('/tabs/:id', c => c.req.param('id'))        // string
-.get('/tabs{/:id}', c => c.req.param('id'))      // string | undefined (optional)
-.get('/files/*path', c => c.req.param('path'))   // string[] (wildcard, URI-decoded)
-.use('/admin', guard)                            // middleware for /admin and everything below it
-```
-
-A bare `*` is not valid in v8: name the wildcard (`*rest`). Invalid patterns throw when the route is registered.
-
-## xfetch
-
-```ts
-const res = await xfetch('/page');                                   // active tab's content script
-const res = await xfetch('/storage/k', { target: 'background', method: 'PUT', body: { a: 1 } });
-const data = await xfetchJson<T>('/page');                           // throws XfetchError on non-2xx
-```
-
-Like `fetch`: resolves for any HTTP status, rejects only when delivery fails (no content script, abort, timeout).
-Bodies and responses travel as JSON/text; binary data (Blob, ArrayBuffer) is not supported by chrome messaging.
+- Arguments and return values must be JSON-serializable (chrome messaging limit): no DOM nodes, functions, Blobs.
+- Every function becomes async on the popup side, even sync ones.
+- Throwing in an API function rejects the popup's call with `IpcError(message)`.
+- Only own properties of what you `expose` are callable.
+- `world.tab` targets the active tab; for a specific one: `connect<ContentApi>('tab', { tabId })`. Default timeout 10s (`{ timeout }`).
 
 ## Scripts
 
